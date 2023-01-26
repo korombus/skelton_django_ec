@@ -9,7 +9,7 @@
 Python 3.9.5
 
 ## How to use
-1. `pip instal -m requirements.txt`
+1. `pip instal -r requirements.txt`
 1. `python manage.py makemigrations`
 1. `python manage.py migrate`
 1. `python manage.py runserver`
