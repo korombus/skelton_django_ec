@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Item, Order, OrderItem
+from accounts.models import CustomUser
+from .models import Item, Order, OrderItem, Payment
 
 class IndexView(View):
     def get(self, request, *args, **kwargs):
@@ -46,20 +47,45 @@ def addItem(request, slug):
 @login_required
 def subItem(request, slug):
     item = get_object_or_404(Item, slug=slug)
-    order_item = OrderItem.objects.get(
-        item = item,
-        user = request.user,
-        ordered = False
-    )
     order = Order.objects.filter(user=request.user, ordered=False)
 
     if order.exists():
         order = order[0]
-        if order.items.filter(item__slug=item.slug).exists() and order_item.quantity > 1:
-            order_item.quantity -= 1
-            order_item.save()
+        if order.items.filter(item__slug=item.slug).exists():
+            order_item = OrderItem.objects.get(
+                item = item,
+                user = request.user,
+                ordered = False
+            )[0]
+
+            if order_item.quantity > 1:
+                order_item.quantity -= 1
+                order_item.save()
+        return redirect('order')
     
-    return redirect('order')
+    return redirect('product', slug=slug)
+    
+
+@login_required
+def removeItem(request, slug):
+    item = get_object_or_404(Item, slug=slug)
+    order = Order.objects.filter(
+        user=request.user,
+        ordered=False
+    )
+    if order.exists():
+        order = order[0]
+        if order.items.filter(item__slug=item.slug).exists():
+            order_item = OrderItem.objects.filter(
+                item=item,
+                user=request.user,
+                ordered=False
+            )[0]
+            order.items.remove(order_item)
+            order_item.delete()
+            return redirect('order')
+    
+    return redirect('product', slug=slug)
 
 class OrderView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -71,3 +97,37 @@ class OrderView(LoginRequiredMixin, View):
             return render(request, 'app/order.html', context)
         except ObjectDoesNotExist:
             return render(request, 'app/order.html')
+
+class PaymentView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        order = Order.objects.get(user=request.user, ordered=False)
+        user_data = CustomUser.objects.get(id=request.user.id)
+        context = {
+            'order': order,
+            'user_data': user_data
+        }
+        return render(request, 'app/payment.html', context)
+    
+    def post(self, request, *args, **kwargs):
+        order = Order.objects.get(user=request.user, ordered=False)
+        order_items = order.items.all()
+        amount = order.get_total()
+        
+        payment = Payment(user=request.user)
+        payment.stripe_charge_id = 'test_stripe_charge_id'
+        payment.amount = amount
+        payment.save()
+
+        order_items.update(ordered=True)
+        for item in order_items:
+            item.save()
+        
+        order.ordered = True
+        order.payment = payment
+        order.save()
+
+        return redirect('thanks')
+
+class ThanksView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        return render(request, 'app/thanks.html')
