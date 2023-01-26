@@ -10,8 +10,8 @@
                 <img src="{{ item.image.url }}" alt="" class="card-img-top card-thum">
                 <div class="card-body text-center px-2 py-3">
                     <p class="mb-text-secondary">{{ item.category }}</p>
-                    <h5 class="font-weight-bold">{{ item.title }}</h5>
-                    <h4 class="font-weight-bold">
+                    <h5 class="fw-bold">{{ item.title }}</h5>
+                    <h4 class="fw-bold">
                         {{ item.price }} 円
                     </h4>
                     <a href="{% url 'product' item.slug %}" class="stretched-link"></a>
